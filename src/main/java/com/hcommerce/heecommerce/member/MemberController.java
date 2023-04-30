@@ -1,5 +1,6 @@
 package com.hcommerce.heecommerce.member;
 
+import com.hcommerce.heecommerce.common.BadRequestException;
 import com.hcommerce.heecommerce.common.UserException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -25,6 +26,11 @@ public class MemberController {
         }
 
         return new MemberDto(id, "hello " + id);
+    }
+
+    @GetMapping("/api/response-status-ex1")
+    public String responseStatusEx1() {
+        throw new BadRequestException();
     }
 
     @Data
