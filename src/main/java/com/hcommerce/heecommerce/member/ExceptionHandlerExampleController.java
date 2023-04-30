@@ -1,9 +1,11 @@
 package com.hcommerce.heecommerce.member;
 
+import com.hcommerce.heecommerce.common.ErrorResult;
 import com.hcommerce.heecommerce.common.UserException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,6 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 public class ExceptionHandlerExampleController {
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ErrorResult illegalExHandler(IllegalArgumentException e) {
+        log.error("[exceptionHandler] ex ", e);
+        return new ErrorResult("BAD", e.getMessage());
+    }
+
     @GetMapping("/api2/members/{id}")
     public MemberDto getMember(@PathVariable("id") String id) {
 
