@@ -21,6 +21,13 @@ public class OrderController {
 
     @PatchMapping("/admin/orders/{orderUuid}/order-receipt-complete")
     public ResponseDto completeOrderReceipt(@PathVariable("orderUuid") UUID orderUuid) {
+        // 1. 재고 확인하기
+        // 2. 재고 감소시키고
+        // 3. 재고 감소 반영하고
+        // 4. 결제 시작
+        // 5. 결제 완료
+        // 6. 주문 생성하기
+        
 
         orderService.completeOrderReceipt(orderUuid);
 
