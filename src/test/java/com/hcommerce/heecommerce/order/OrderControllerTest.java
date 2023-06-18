@@ -1,7 +1,14 @@
 package com.hcommerce.heecommerce.order;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.patch;
+import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcommerce.heecommerce.EnableMockMvc;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,16 +17,10 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.containsString;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @EnableMockMvc
 @SpringBootTest
@@ -30,6 +31,9 @@ class OrderControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private MockHttpSession session;
 
     @BeforeEach
@@ -39,6 +43,7 @@ class OrderControllerTest {
         session = new MockHttpSession();
     }
 
+    // TODO : placeOrder 완성되면 삭제할 예정. 예외처리 참고용으로 남겨 둠
     @Nested
     @DisplayName("PATCH /admin/orders/{orderUuid}/order-receipt-complete ")
     class Describe_OrderReceiptComplete_API {
@@ -161,6 +166,88 @@ class OrderControllerTest {
                         .andExpect(content().string(containsString("로그인 후에 이용할 수 있습니다.")));
 
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /orders")
+    class Describe_PlaceOrder_API {
+        @Nested
+        @DisplayName("when order is successful")
+        class Context_When_Order_Is_Successful {
+            @Test
+            @DisplayName("returns 201")
+            void it_returns_201() throws Exception {
+                // when
+                OrderForm orderForm = OrderForm.builder()
+                    .userId(1)
+                    .recipientInfoForm(
+                        RecipientInfoForm.builder()
+                            .recipientName("leecommerce")
+                            .recipientPhoneNumber("01087654321")
+                            .recipientAddress("서울시 ")
+                            .recipientDetailAddress("101호")
+                            .shippingRequest("빠른 배송 부탁드려요!")
+                            .build()
+                    )
+                    .outOfStockHandlingOption(OutOfStockHandlingOption.ALL_CANCEL)
+                    .dealProductUuid(UUID.randomUUID())
+                    .orderQuantity(2)
+                    .paymentType(PaymentType.CREDIT_CARD)
+                    .build();
+
+                String content = objectMapper.writeValueAsString(orderForm);
+
+                ResultActions resultActions = mockMvc.perform(
+                    post("/orders")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(content)
+                );
+
+                // then
+                resultActions.andExpect(status().isCreated())
+                    .andDo(OrderControllerRestDocs.placeOrder());
+            }
+        }
+
+        @Nested
+        @DisplayName("when order fails due to invalid orderForm with orderQuantity > maxOrderQuantityPerOrder")
+        class Context_When_Order_Fails {
+            @Test
+            @DisplayName("returns 400 error")
+            void it_returns_400() throws Exception {
+                // when
+                OrderForm orderForm = OrderForm.builder()
+                    .userId(1)
+                    .recipientInfoForm(
+                        RecipientInfoForm.builder()
+                            .recipientName("leecommerce")
+                            .recipientPhoneNumber("01087654321")
+                            .recipientAddress("서울시 ")
+                            .recipientDetailAddress("101호")
+                            .shippingRequest("빠른 배송 부탁드려요!")
+                            .build()
+                    )
+                    .outOfStockHandlingOption(OutOfStockHandlingOption.ALL_CANCEL)
+                    .dealProductUuid(UUID.randomUUID())
+                    .orderQuantity(12)
+                    .paymentType(PaymentType.CREDIT_CARD)
+                    .build();
+
+                String content = objectMapper.writeValueAsString(orderForm);
+
+                ResultActions resultActions = mockMvc.perform(
+                    post("/orders")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(content)
+                );
+
+                // then
+                resultActions.andExpect(status().isBadRequest());
+            }
+
         }
     }
 }
