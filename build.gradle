@@ -18,6 +18,7 @@ configurations {
 
 repositories {
 	mavenCentral()
+	maven { url 'https://jitpack.io' } // impoart
 }
 
 dependencies {
@@ -34,6 +35,9 @@ dependencies {
 	// redis
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.redisson:redisson-spring-boot-starter:3.21.3'
+
+	// iamport
+	implementation 'com.github.iamport:iamport-rest-client-java:0.2.23'
 
 	// devtools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
