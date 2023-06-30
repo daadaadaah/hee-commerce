@@ -2,6 +2,7 @@ package com.hcommerce.heecommerce.common.dao;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,8 @@ public class RedisHashRepository<T> {
     private T convertObjectFromString(String item, TypeReference<T> objectTypeReference) {
         ObjectMapper objectMapper = new ObjectMapper();
 
+        objectMapper.registerModule(new JavaTimeModule());
+
         try {
             return objectMapper.readValue(item, objectTypeReference);
         } catch (Exception e) {
@@ -67,6 +70,8 @@ public class RedisHashRepository<T> {
 
     private String convertStringFromObject(T item) {
         ObjectMapper objectMapper = new ObjectMapper();
+
+        objectMapper.registerModule(new JavaTimeModule());
 
         try {
             return objectMapper.writeValueAsString(item);

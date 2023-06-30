@@ -35,12 +35,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.redisson:redisson-spring-boot-starter:3.21.3'
 
-	// devtools
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// jackson-datatype-jsr310
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3'
 
 	// mysql
 	implementation 'mysql:mysql-connector-java:8.0.22'
 	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// devtools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
 	// lombok
 	compileOnly 'org.projectlombok:lombok'
