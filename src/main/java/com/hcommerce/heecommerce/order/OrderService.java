@@ -7,13 +7,9 @@ import com.hcommerce.heecommerce.deal.DiscountType;
 import com.hcommerce.heecommerce.deal.TimeDealProductDetail;
 import com.hcommerce.heecommerce.inventory.InventoryCommandRepository;
 import com.hcommerce.heecommerce.inventory.InventoryQueryRepository;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -65,25 +61,27 @@ public class OrderService {
      * 재고량이 0은 아니지만, 사용자가 주문한 수량에 비해 재고량이 없는 경우가 있다.
      * 이때, 재고량만큼만 주문하도록 할 수 있도록 "부문 주문"이 가능한데, 사용자가 주문한 수량과 혼동되지 않도록 실제 주문하는 수량이라는 의미를 내포하기 위해서 필요하다.
      */
-    private int calculateRealOrderQuantity(int inventoryAfterDecrease, int orderQuantity, OutOfStockHandlingOption outOfStockHandlingOption) {
+    private int calculateRealOrderQuantity(UUID dealProductUuid, int inventoryAfterDecrease, int orderQuantity, OutOfStockHandlingOption outOfStockHandlingOption) {
+        int realOrderQuantity = orderQuantity;
 
         int inventoryBeforeDecrease = orderQuantity + inventoryAfterDecrease;
 
+        // TODO : 추가로 인터셉터에서 재고량 검증 하는거 구현해서, 재고가 없는 경우에는 요청이 Redis에 접근이 안되도록 하는건?
         if(
             inventoryBeforeDecrease <= 0 || // case 1
-            inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.ALL_CANCEL // case 2-1
+                inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.ALL_CANCEL // case 2-1
         ) {
+            inventoryCommandRepository.set(dealProductUuid, inventoryBeforeDecrease);
+            // TODO : 재고 이력에 반영
+
             throw new OrderOverStockException();
         }
 
-        int realOrderQuantity = 0;
-
-        if(inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.PARTIAL_ORDER) { // case 2-2
+        if(inventoryBeforeDecrease > 0 && inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.PARTIAL_ORDER) { // case 2-2
             realOrderQuantity = inventoryBeforeDecrease; // 기존 재고량 만큼만 주문
-        }
 
-        if(inventoryAfterDecrease >= 0) { // case 3
-            realOrderQuantity = orderQuantity;
+            inventoryCommandRepository.set(dealProductUuid, 0);
+            // TODO : 재고 이력에 반영
         }
 
         return realOrderQuantity;
@@ -128,63 +126,110 @@ public class OrderService {
         // 3. 최대 주문 수량에 맞는 orderQuantity 인지
         validateOrderQuantityInMaxOrderQuantityPerOrder(dealProductUuid, orderQuantity);
 
-        // 4. 재고 감소
-        OutOfStockHandlingOption outOfStockHandlingOption = orderForm.getOutOfStockHandlingOption();
-
-        final int[] inventoryAfterDecrease = decreaseInventoryInAdvance(dealProductUuid, orderQuantity, outOfStockHandlingOption);
+        // 4. 재고 사전 감소
+        int inventoryAfterDecrease = inventoryCommandRepository.decreaseByAmount(dealProductUuid, orderQuantity); // 무조건 감소라서, 데이터 정합성을 위해 주문 처리가 안된 경우에는 다시 증가시켜줘야 하지 않나?
+        // 재고 이력에 반영
 
         // 5. 실제 주문 가능한 수량 계산
         int realOrderQuantity = 0;
 
         try {
-            realOrderQuantity = calculateRealOrderQuantity(inventoryAfterDecrease[0], orderQuantity, outOfStockHandlingOption);
+            OutOfStockHandlingOption outOfStockHandlingOption = orderForm.getOutOfStockHandlingOption();
+
+            realOrderQuantity = calculateRealOrderQuantity(dealProductUuid, inventoryAfterDecrease, orderQuantity, outOfStockHandlingOption);
+
+            // 6. 주문 내역 미리 저장 // TODO : realOrderQuantity == 0 일 때의 예외처리 필요?
 
             OrderFormSavedInAdvanceEntity orderFormSavedInAdvanceEntity = createOrderFormSavedInAdvanceEntity(orderForm, realOrderQuantity);
 
-            // 6. 주문 내역 미리 저장
             UUID orderUuidSavedInAdvance = orderCommandRepository.saveOrderInAdvance(orderFormSavedInAdvanceEntity);
 
             return orderUuidSavedInAdvance;
         } catch (OrderOverStockException orderOverStockException) {
-            rollbackReducedInventory(dealProductUuid, orderQuantity);
+            rollbackReducedInventory(dealProductUuid, orderQuantity); // 주문이 가능하든 안하든 사용자가 요청한 주문량 만큼 감소가 일어났으므로,
             throw orderOverStockException;
         } catch (Exception e) {
+            /**
+             * 예상 예외 발생 경우
+             * 1. determineRealOrderQuantity에서 에외가 발생할 때
+             * 1) 재고 감소를 위해 Redis 접근하려고 하는데, 안될 때 -> rollback 필요 없음
+             * 2) case 1, case 2에 의해 원상 복귀해줘야 할 때 -> rollback 필요함
+             *
+             * 2. orderCommandRepository.saveOrderInAdvance(orderFormSavedInAdvanceEntity)에서 주문 내역을 저장하려고 MySQL 접근하려고 하는데, 안될 때,
+             * -> rollback ? 사용자가 재시도 할 수 있도록 재시도하도록?
+             */
+
             rollbackReducedInventory(dealProductUuid, realOrderQuantity);
             throw e;
         }
     }
 
     /**
-     * decreaseInventoryInAdvance 는 주문 전 재고를 미리 감소시키는 함수 이다.
-     * inventoryAfterDecrease 를 final int[] 로 선언한 이유는 https://github.com/f-lab-edu/hee-commerce/issues/123 참고
+     * calculateRealOrderQuantity 는 실제 주문 수량을 계산하는 함수이다.
+     *
+     * 실제 주문 수량은 감소시킨 후의 재고량, 주문량, 재고 부족 처리 옵션에 따라 달라지고, 경우의 수는 다음과 같다.
+     * case 1) 재고량이 0 이하인 경우(예 : 감소시킨 후의 재고량 : -4, 주문량 : 3) : 주문 불가
+     * case 2-1) 재고량은 0은 아니지만, 재고량이 주문량보다 적은 경우(예 : 감소시킨 후의 재고량 : -2, 주문량 : 3 -> 기존 재고량 : 1) + ALL_CANCEL : 주문 불가
+     * case 2-2) 재고량은 0은 아니지만, 재고량이 주문량보다 적은 경우(예 : 감소시킨 후의 재고량 : -2, 주문량 : 3 -> 기존 재고량 : 1) + PARTIAL_ORDER : 주문 가능
+     * case 3) 재고량이 주문량보다 많은 경우(예 : 감소시킨 후의 재고량 : 1, 주문량 : 3 -> 기존 재고 : 4) : 주문 가능
+     *
+     * @param dealProductUuid : 감소시킬 딜 상품 Uuid
+     * @param orderQuantity : 주문량
+     * @param outOfStockHandlingOption : 재고 부족 처리 옵션
+     * @return realOrderQuantity : 실제 주문량
+     *
+     * realOrderQuantity 이 필요한 이유는 "부분 주문" 때문이다.
+     * 재고량이 0은 아니지만, 사용자가 주문한 수량에 비해 재고량이 없는 경우가 있다.
+     * 이때, 재고량만큼만 주문하도록 할 수 있도록 "부문 주문"이 가능한데, 사용자가 주문한 수량과 혼동되지 않도록 실제 주문하는 수량이라는 의미를 내포하기 위해서 필요하다.
+     *
+     * Q1) inventoryCommandRepository.set(dealProductUuid, 0) 안해주면 문제가 발생할까?
+     * 예를 들어, A 사용자가 요청한 주문 수량은 3개 이고, 부분 주문 옵션을 선택했다.
+     * 그런데, 재고는 2개 였다.
+     * 그래서, 2개만 주문 가능한 상태이다.
+     * 작업 순서는 다음과 같다고 가정해보자.
+     * 1. A 사용자의 주문 요청(3개)에 의해 2 - 3 => -1 으로 감소했다.
+     * 2. B 사용자의 주문 요청(4개)에 의해 -1 - 4 => -5 인 상태이다.
+     * 3. A 사용자의 실제 주문 수량이 2
+     * 이때,재고량이 0이 아니지만, -4개인 경우도 0인 경우처럼 주문이 되지 않고, OrderOverStockException가 발생한다.
+     * 즉, 0 이하의 값은 어느 값을 갖든지 0과 동일하게 로직이 처리됨. 그래서, 데이터 무결성과 데이터 일관성을 완전히 유지할 필요는 없다고 생각한다.
+     * 따라서, inventoryCommandRepository.set(dealProductUuid, 0) 을 해줄 필요가 없다고 판단하여, 제거함.
+     *
+     * Q2) 데이터의 무결성 또는 일관성이 깨지면 재고 집계할 때 문제되지 않을까?
+     * 어짜피 재고가 집계될 때에는 Redis에 있는 재고량을 기준으로 집계하지 않고, 재고 히스토리 테이블을 기준으로 집계하므로, 문제가 되지 않을 거라고 생각한다.
+     *
+     * Q3) rollback 하는 경우, 문제 없을까? -> 문제가 됨!
+     * 작업 순서는 다음과 같다고 가정해보자.
+     * 1. A 사용자의 주문 요청(3개)에 의해 2 - 3 => -1 으로 감소했다.
+     * 2. B 사용자의 주문 요청(4개)에 의해 -1 - 4 => -5 인 상태이다.
+     * 3. A 사용자의 주문 요청에 대한 Rollback(재고량 만큼, 2개) -5 + 2 -> -3 인 상태로 재고가 생겼는데, 없는 것처럼 되네?
+     *
      */
-    private int[] decreaseInventoryInAdvance(UUID dealProductUuid, int orderQuantity, OutOfStockHandlingOption outOfStockHandlingOption) {
-        final int[] inventoryAfterDecrease = new int[1];
+    private int determineRealOrderQuantity(UUID dealProductUuid, int orderQuantity, OutOfStockHandlingOption outOfStockHandlingOption) {
+        int realOrderQuantity = orderQuantity;
 
-        redisTemplate.execute(new SessionCallback<List<Object>>() {
-            @Override
-            public List<Object> execute(RedisOperations operations) throws DataAccessException {
-                try {
-                    operations.multi();
+        int inventoryAfterDecrease = inventoryCommandRepository.decreaseByAmount(dealProductUuid, orderQuantity); // 무조건 감소라서, 데이터 정합성을 위해 주문 처리가 안된 경우에는 다시 증가시켜줘야 하지 않나?
 
-                    // TODO : 재고 증가/감소 다음 단계로 재고 히스토리 저장 로직 추가 필요
-                    inventoryAfterDecrease[0] = inventoryCommandRepository.decreaseByAmount(dealProductUuid, orderQuantity);
+        int inventoryBeforeDecrease = orderQuantity + inventoryAfterDecrease;
 
-                    int inventoryBeforeDecrease = orderQuantity + inventoryAfterDecrease[0];
+        // TODO : 추가로 인터셉터에서 재고량 검증 하는거 구현해서, 재고가 없는 경우에는 요청이 Redis에 접근이 안되도록 하는건?
+        if(
+            inventoryBeforeDecrease <= 0 || // case 1
+            inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.ALL_CANCEL // case 2-1
+        ) {
+            inventoryCommandRepository.set(dealProductUuid, inventoryBeforeDecrease);
+            // 재고 이력에 반영
 
-                    if (inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.PARTIAL_ORDER) {
-                        inventoryCommandRepository.set(dealProductUuid, 0); // 데이터 일관성 맞춰주기 위해
-                    }
+            throw new OrderOverStockException();
+        }
 
-                    return operations.exec();
-                } catch (Exception e) {
-                    operations.discard();
-                    throw e;
-                }
-            }
-        });
+        if(inventoryBeforeDecrease > 0 && inventoryBeforeDecrease < orderQuantity && outOfStockHandlingOption == OutOfStockHandlingOption.PARTIAL_ORDER) { // case 2-2
+            realOrderQuantity = inventoryBeforeDecrease; // 기존 재고량 만큼만 주문
 
-        return inventoryAfterDecrease;
+            inventoryCommandRepository.set(dealProductUuid, 0);
+            // 재고 이력에 반영
+        }
+
+        return realOrderQuantity;
     }
 
     /**
