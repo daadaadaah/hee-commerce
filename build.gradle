@@ -70,6 +70,12 @@ test {
 	outputs.dir snippetsDir // restdocs
 }
 
+task installLocalGitHook(type: Copy){
+	from new File(rootProject.rootDir, 'scripts/pre-push')
+	into { new File(rootProject.rootDir, '.git/hooks')}
+	fileMode 0775
+}
+
 // restdocs
 asciidoctor {
 	inputs.dir snippetsDir
