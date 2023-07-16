@@ -9,4 +9,5 @@ public class InventoryEventStatus {
     // 주문 취소 : 결제창 닫기, 결제 취소
 
     // 결제
+    ///
 }
