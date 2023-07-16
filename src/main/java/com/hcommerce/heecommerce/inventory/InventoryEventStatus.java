@@ -10,4 +10,6 @@ public class InventoryEventStatus {
 
     // 결제
     ///
+
+    ///
 }
