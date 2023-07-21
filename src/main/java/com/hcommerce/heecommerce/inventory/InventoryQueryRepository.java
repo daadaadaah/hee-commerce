@@ -24,18 +24,36 @@ public class InventoryQueryRepository {
     public int get(UUID dealProductUuid) {
         String key = RedisUtils.getInventoryKey(dealProductUuid);
 
+        String result = redisStringsRepository.get(key);
+
+        if(result.isEmpty()) {
+           // 예외 던지기
+        }
+
         return Integer.valueOf(redisStringsRepository.get(key));
     }
 
     public List<Integer> getMany(Set<String> uuidStrings) {
+        if(uuidStrings.isEmpty()) {
+            //
+        }
+
         Set<String> keys = createRedisKeys(uuidStrings);
 
         List<String> inventories = redisStringsRepository.getMany(keys);
+
+        if(inventories.isEmpty()) {
+            //
+        }
 
         return TypeConversionUtils.convertStringsToIntegers(inventories);
     }
 
     private Set<String> createRedisKeys(Set<String> uuidStrings) {
+        if(uuidStrings.isEmpty()) {
+            //
+        }
+
         Set<String> redisKeys = new HashSet<>();
 
         Iterator<String> iterator = uuidStrings.iterator();

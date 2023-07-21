@@ -35,7 +35,12 @@ public class RedisStringsRepository {
     }
 
     public String get(String key) {
-        return redisTemplate.opsForValue().get(key);
+        String result = redisTemplate.opsForValue().get(key);
+
+        if(result.isEmpty()) {
+            // 예외 던지기
+        }
+        return result;
     }
 
     /**
