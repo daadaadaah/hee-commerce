@@ -22,6 +22,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler
     public ResponseDto orderNotFoundExceptionHandler(OrderNotFoundException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
                 .code(HttpStatus.NOT_FOUND.name())
                 .message(e.getMessage())
@@ -31,6 +34,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler
     public ResponseDto timeDealProductNotFoundExceptionHandler(TimeDealProductNotFoundException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
             .code(HttpStatus.NOT_FOUND.name())
             .message(e.getMessage())
@@ -40,6 +46,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.CONFLICT)
     @ExceptionHandler
     public ResponseDto orderOverStockExceptionExceptionHandler(OrderOverStockException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
                 .code(HttpStatus.CONFLICT.name())
                 .message(e.getMessage())
@@ -49,6 +58,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.CONFLICT)
     @ExceptionHandler
     public ResponseDto maxOrderQuantityExceededExceptionHandler(MaxOrderQuantityExceededException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
             .code(HttpStatus.CONFLICT.name())
             .message(e.getMessage())
@@ -58,6 +70,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
     public ResponseDto methodArgumentNotValidExceptionHandler(MethodArgumentNotValidException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
             .code(HttpStatus.BAD_REQUEST.name())
             .message(e.getBindingResult().getAllErrors().get(0).getDefaultMessage())
@@ -67,6 +82,9 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
     public ResponseDto invalidPaymentAmountExceptionHandler(InvalidPaymentAmountException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         return ResponseDto.builder()
             .code(HttpStatus.BAD_REQUEST.name())
             .message(e.getMessage())
@@ -78,6 +96,9 @@ public class GlobalControllerAdvice {
      */
     @ExceptionHandler
     public ResponseEntity tosspaymentsExceptionHandler(TosspaymentsException e) {
+        log.error("class = {}, message = {}, cause = {}", e.getClass(), e.getMessage(), e.getCause());
+        log.debug("stackTrace = {}", e.getStackTrace());
+
         ResponseDto responseDto = ResponseDto.builder()
                                         .code(e.getCode())
                                         .message(e.getMessage()+"aaaaa")
