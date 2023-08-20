@@ -7,8 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcommerce.heecommerce.EnableMockMvc;
+import com.hcommerce.heecommerce.fixture.AuthFixture;
 import com.hcommerce.heecommerce.fixture.OrderFixture;
-import com.hcommerce.heecommerce.fixture.UserFixture;
 import com.hcommerce.heecommerce.order.dto.OrderApproveForm;
 import com.hcommerce.heecommerce.order.dto.OrderFormDto;
 import com.hcommerce.heecommerce.order.enums.OutOfStockHandlingOption;
@@ -65,7 +65,7 @@ class OrderControllerTest {
             @DisplayName("returns 201")
             void It_returns_201() throws Exception {
                 // given
-                given(orderService.placeOrderInAdvance(any())).willReturn(UUID.randomUUID());
+                given(orderService.placeOrderInAdvance(any(), any())).willReturn(UUID.randomUUID());
 
                 OrderFormDto orderFormDto = OrderFixture.ORDER_FORM_DTO;
 
@@ -99,7 +99,7 @@ class OrderControllerTest {
                     .build();
 
                 // given
-                given(orderService.placeOrderInAdvance(any())).willThrow(
+                given(orderService.placeOrderInAdvance(any(), any())).willThrow(
                     TimeDealProductNotFoundException.class);
 
                 // when
@@ -127,11 +127,10 @@ class OrderControllerTest {
             void It_returns_404() throws Exception {
 
                 OrderFormDto orderFormDtoWithNotExistUserId = OrderFixture.rebuilder()
-                    .userId(UserFixture.INVALID_ID)
                     .build();
 
                 // given
-                given(orderService.placeOrderInAdvance(any())).willThrow(UserNotFoundException.class);
+                given(orderService.placeOrderInAdvance(any(), any())).willThrow(UserNotFoundException.class);
 
                 // when
                 String content = objectMapper.writeValueAsString(orderFormDtoWithNotExistUserId);
@@ -155,7 +154,7 @@ class OrderControllerTest {
             @DisplayName("returns 409 error")
             void It_returns_409_Error() throws Exception {
                 // given
-                given(orderService.placeOrderInAdvance(any())).willThrow(OrderOverStockException.class);
+                given(orderService.placeOrderInAdvance(any(), any())).willThrow(OrderOverStockException.class);
 
                 OrderFormDto orderFormDto = OrderFixture.ORDER_FORM_DTO;;
 
@@ -184,7 +183,7 @@ class OrderControllerTest {
                 @DisplayName("returns 409 error")
                 void It_returns_409_Error() throws Exception {
                     // given
-                    given(orderService.placeOrderInAdvance(any())).willThrow(
+                    given(orderService.placeOrderInAdvance(any(), any())).willThrow(
                         OrderOverStockException.class);
 
                     OrderFormDto orderFormDto = OrderFixture.rebuilder()
@@ -217,7 +216,7 @@ class OrderControllerTest {
                                                 .outOfStockHandlingOption(OutOfStockHandlingOption.PARTIAL_ORDER)
                                                 .build();
 
-                    given(orderService.placeOrderInAdvance(orderFormDto)).willReturn(UUID.randomUUID());
+                    given(orderService.placeOrderInAdvance(orderFormDto, AuthFixture.TOKEN_PAYLOAD)).willReturn(UUID.randomUUID());
 
                     String content = objectMapper.writeValueAsString(orderFormDto);
 
@@ -242,7 +241,7 @@ class OrderControllerTest {
             @DisplayName("returns 409 error")
             void It_Returns_409_Error() throws Exception {
                 // given
-                given(orderService.placeOrderInAdvance(any())).willThrow(OrderOverStockException.class);
+                given(orderService.placeOrderInAdvance(any(), any())).willThrow(OrderOverStockException.class);
 
                 OrderFormDto orderFormDto = OrderFixture.ORDER_FORM_DTO;
 

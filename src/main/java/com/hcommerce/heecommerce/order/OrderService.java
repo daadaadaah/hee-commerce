@@ -1,6 +1,7 @@
 package com.hcommerce.heecommerce.order;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.hcommerce.heecommerce.auth.TokenPayload;
 import com.hcommerce.heecommerce.common.utils.DateTimeConversionUtils;
 import com.hcommerce.heecommerce.common.utils.TosspaymentsUtils;
 import com.hcommerce.heecommerce.common.utils.TypeConversionUtils;
@@ -72,8 +73,8 @@ public class OrderService {
     /**
      * placeOrderInAdvance 는 주문 승인 전에 검증을 위해 미리 주문 내역을 저장하는 함수이다.
      */
-    public UUID placeOrderInAdvance(OrderFormDto orderFormDto) {
-        OrderForm orderForm = OrderForm.from(orderFormDto);
+    public UUID placeOrderInAdvance(OrderFormDto orderFormDto, TokenPayload tokenPayload) {
+        OrderForm orderForm = OrderForm.of(orderFormDto, tokenPayload.getUserId());
 
         UUID dealProductUuid = orderForm.getDealProductUuid();
 
@@ -88,8 +89,6 @@ public class OrderService {
         boolean hasUserId = userQueryRepository.hasUserId(orderForm.getUserId());
 
         orderForm.validateHasUserId(hasUserId);
-
-        // TODO : 회원 기능 추가 후 구현
 
         // 3. 최대 주문 수량에 맞는 orderQuantity 인지
         int maxOrderQuantityPerOrder = dealProductQueryRepository.getMaxOrderQuantityPerOrderByDealProductUuid(dealProductUuid);

@@ -14,10 +14,6 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
-        // TODO : 추후 삭제 필요! 이거 주석처리 후 테스트해야 제대로 테스트 됨
-//        HttpSession session = request.getSession();
-//        session.setAttribute("isAdmin", true);
-
         if (!AuthHelper.isLogin(request)) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
 

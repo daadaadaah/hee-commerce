@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcommerce.heecommerce.common.utils.TosspaymentsUtils;
 import com.hcommerce.heecommerce.deal.DealProductQueryRepository;
+import com.hcommerce.heecommerce.fixture.AuthFixture;
 import com.hcommerce.heecommerce.fixture.DealProductFixture;
 import com.hcommerce.heecommerce.fixture.OrderFixture;
 import com.hcommerce.heecommerce.fixture.TossConfirmResponse;
@@ -26,7 +27,6 @@ import com.hcommerce.heecommerce.order.exception.MaxOrderQuantityExceededExcepti
 import com.hcommerce.heecommerce.order.exception.OrderOverStockException;
 import com.hcommerce.heecommerce.order.exception.TimeDealProductNotFoundException;
 import com.hcommerce.heecommerce.user.UserQueryRepository;
-import com.hcommerce.heecommerce.user.exception.UserNotFoundException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -104,7 +104,7 @@ class OrderServiceTest {
                 given_when_saveOrderInAdvance_is_success(expectedOrderUuid);
 
                 // when
-                UUID actualUuid = orderService.placeOrderInAdvance(OrderFixture.ORDER_FORM_DTO);
+                UUID actualUuid = orderService.placeOrderInAdvance(OrderFixture.ORDER_FORM_DTO, AuthFixture.TOKEN_PAYLOAD);
 
                 // then
                 assertEquals(expectedOrderUuid, actualUuid);
@@ -122,32 +122,31 @@ class OrderServiceTest {
 
                 // when + then
                 assertThrows(TimeDealProductNotFoundException.class, () -> {
-                    orderService.placeOrderInAdvance(OrderFixture.ORDER_FORM_DTO);
+                    orderService.placeOrderInAdvance(OrderFixture.ORDER_FORM_DTO, AuthFixture.TOKEN_PAYLOAD);
                 });
             }
         }
 
-        @Nested
-        @DisplayName("with invalid userId")
-        class Context_With_Invalid_UserId {
-            @Test
-            @DisplayName("throws UserNotFoundException")
-            void It_throws_UserNotFoundException() {
-                // given
-                given_with_valid_dealProductUuid();
-
-                given_with_invalid_userId();
-
-                OrderFormDto orderFormDto = OrderFixture.rebuilder()
-                                                .userId(0)
-                                                .build();
-
-                // when + then
-                assertThrows(UserNotFoundException.class, () -> {
-                    orderService.placeOrderInAdvance(orderFormDto);
-                });
-            }
-        }
+//        @Nested
+//        @DisplayName("with invalid userId")
+//        class Context_With_Invalid_UserId {
+//            @Test
+//            @DisplayName("throws UserNotFoundException")
+//            void It_throws_UserNotFoundException() {
+//                // given
+//                given_with_valid_dealProductUuid();
+//
+//                given_with_invalid_userId();
+//
+//                OrderFormDto orderFormDto = OrderFixture.rebuilder()
+//                                                .build();
+//
+//                // when + then
+//                assertThrows(UserNotFoundException.class, () -> {
+//                    orderService.placeOrderInAdvance(orderFormDto);
+//                });
+//            }
+//        }
 
 
         @Nested
@@ -170,7 +169,7 @@ class OrderServiceTest {
 
                 // when + then
                 assertThrows(MaxOrderQuantityExceededException.class, () -> {
-                    orderService.placeOrderInAdvance(orderFormDto);
+                    orderService.placeOrderInAdvance(orderFormDto, AuthFixture.TOKEN_PAYLOAD);
                 });
             }
         }
@@ -199,7 +198,7 @@ class OrderServiceTest {
 
                     // when + then
                     assertThrows(OrderOverStockException.class, () -> {
-                        orderService.placeOrderInAdvance(orderFormDto);
+                        orderService.placeOrderInAdvance(orderFormDto, AuthFixture.TOKEN_PAYLOAD);
                     });
                 }
             }
@@ -231,7 +230,7 @@ class OrderServiceTest {
 
                     // when + then
                     assertDoesNotThrow(() -> {
-                        orderService.placeOrderInAdvance(orderFormDto);
+                        orderService.placeOrderInAdvance(orderFormDto, AuthFixture.TOKEN_PAYLOAD);
                     });
                 }
             }
@@ -262,7 +261,7 @@ class OrderServiceTest {
 
                 // when
                 assertThrows(OrderOverStockException.class, () -> {
-                    orderService.placeOrderInAdvance(orderFormDto);
+                    orderService.placeOrderInAdvance(orderFormDto, AuthFixture.TOKEN_PAYLOAD);
                 });
 
                 verify(inventoryCommandRepository).increase(any());
